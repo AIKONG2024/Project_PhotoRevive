@@ -1,0 +1,21 @@
+# Ignore image files
+*.jpg
+*.jpeg
+*.png
+*.bmp
+*.gif
+*.tiff
+*.tif
+*.webp
+*.heic
+
+# Ignore weight files
+*.pth
+*.pt
+*.ckpt
+*.h5
+*.onnx
+*.weights
+
+# Ignore output directories
+outputs/
