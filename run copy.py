@@ -9,7 +9,8 @@ timestamp = datetime.datetime.now().strftime("%Y%m%d_%H%M%S")
 
 # LLM을 사용하여 프롬프트 분석 및 작업 분리
 def analyze_prompt(prompt):
-    tasks = set()  # 중복 작업 방지를 위해 set 사용
+    weather_tasks = set()  # 중복 작업 방지를 위해 set 사용
+    person_tasks = set()
     doc = nlp(prompt)
     
     print("Analyzing prompt:")
@@ -20,22 +21,25 @@ def analyze_prompt(prompt):
             if token.pos_ == "VERB":  # 동사인 경우 작업 추출
                 if "하늘" in sent.text or "날씨" in sent.text:
                     if "맑음" in sent.text or "맑은 하늘" in sent.text or "맑고" in sent.text or "화창" in sent.text:
-                        tasks.add("clear_sky")
-                    elif "구름" in sent.text:
-                        tasks.add("cloudy_sky")
-                    elif "흐림" in sent.text or "흐린" in sent.text:
-                        tasks.add("overcast_sky")
-                    elif "번개" in sent.text or "천둥" in sent.text:
-                        tasks.add("stormy_sky")
-                    elif "비" in sent.text:
-                        tasks.add("rainy_sky")
-                    elif "눈" in sent.text:
-                        tasks.add("snowy_sky")
-                    elif "무지개" in sent.text:
-                        tasks.add("rainbow_sky")
-                if "사람" in sent.text or "사람들" in sent.text:
-                    tasks.add("remove_people")
-    return list(tasks)
+                        weather_tasks.add("clear_sky")
+                    elif "구름" in  sent.text:
+                        weather_tasks.add("cloudy_sky")
+                    elif "흐림"  in sent.text or "흐린" in sent.text:
+                        weather_tasks.add("overcast_sky")
+                    elif "번개"  in sent.text or "천둥" in sent.text:
+                        weather_tasks.add("stormy_sky")
+                    elif "비"  in sent.text:
+                        weather_tasks.add("rainy_sky")
+                    elif "눈"  in sent.text:
+                        weather_tasks.add("snowy_sky")
+                    elif "무지개"  in sent.text:
+                        weather_tasks.add("rainbow_sky")
+                if "사람"  in sent.text or "사람들"  in sent.text:
+                    if "중앙 사람 빼고"  in sent.text:
+                        person_tasks.add("remove_other_people")
+                    else:
+                        person_tasks.add("remove_people")
+    return list(weather_tasks), list(person_tasks)
 
 # GroundingSAM 및 inpainting을 위한 명령 실행 함수
 def run_command(command):
@@ -49,7 +53,7 @@ def generate_command(task, image_path, output_dir):
     
     if task == "clear_sky":
         det_prompt = "sky"
-        inpaint_prompt = "A clear blue sky."
+        inpaint_prompt = "A bright day clear blue sky."
     elif task == "cloudy_sky":
         det_prompt = "sky"
         inpaint_prompt = "A cloudy sky."
@@ -69,8 +73,12 @@ def generate_command(task, image_path, output_dir):
         det_prompt = "sky"
         inpaint_prompt = "A sky with a rainbow."
     elif task == "remove_people":
-        script = "grounded_sam_remove_select.py"
+        script = "grounded_sam_remove.py"
         det_prompt = "person"
+        inpaint_prompt = ""
+    elif task == "remove_other_people":
+        script = "grounded_sam_remove.py"
+        det_prompt = "other_people"
         inpaint_prompt = ""
 
     command = f"""
@@ -80,7 +88,7 @@ def generate_command(task, image_path, output_dir):
     --sam_checkpoint Grounded-Segment-Anything/sam_vit_h_4b8939.pth \
     --input_image {image_path} \
     --output_dir {output_dir} \
-    --box_threshold 0.2 \
+    --box_threshold 0.7 \
     --text_threshold 0.5 \
     --det_prompt "{det_prompt}" \
     --inpaint_prompt "{inpaint_prompt}" \
@@ -96,21 +104,24 @@ def main_workflow(prompt, image_path):
         os.makedirs(output_dir)
 
     # 프롬프트 분석 및 작업 분리
-    tasks = analyze_prompt(prompt)
+    weather_tasks, person_tasks = analyze_prompt(prompt)
     
-    print(f"Tasks identified: {tasks}")
+    print(f"Weather tasks identified: {weather_tasks}")
+    print(f"Person tasks identified: {person_tasks}")
     
-    # 각 작업 수행
-    for task in tasks:
+    # 날씨 관련 작업을 먼저 수행
+    for task in weather_tasks:
         command = generate_command(task, image_path, output_dir)
         run_command(command)
-        # 결과 이미지를 다음 작업에 사용할 이미지로 설정
-        if task in ["clear_sky", "cloudy_sky", "overcast_sky", "stormy_sky", "rainy_sky", "snowy_sky", "rainbow_sky"]:
-            image_path = os.path.join(output_dir, "inpainted_image.jpg")
-        elif task == "remove_people":
-            image_path = os.path.join(output_dir, "output_image.jpg")
+        image_path = os.path.join(output_dir, "inpainted_image.jpg")
+    
+    # 사람 제거 작업을 나중에 수행
+    for task in person_tasks:
+        command = generate_command(task, image_path, output_dir)
+        run_command(command)
+        image_path = os.path.join(output_dir, "output_image.jpg")
 
 if __name__ == "__main__":
-    prompt = "맑은 하늘로 변경해주고, 사람들을 지워줘"
-    image_path = './assets/raw_image2.jpg'
+    prompt = "맑은 하늘로 변경해주고, 중앙 사람 빼고 뒤에 나머지 사람들을 지워줘"
+    image_path = './assets/test100.jpg'
     main_workflow(prompt, image_path)

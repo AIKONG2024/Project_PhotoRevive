@@ -1,41 +1,32 @@
 import subprocess
 import datetime
 import os
-import spacy
+from langchain.llms import OpenAI
+from langchain.prompts import PromptTemplate
+from dotenv import load_dotenv
+import openai
+import os
 
-# spaCy 모델 로드
-nlp = spacy.load("ko_core_news_sm")
+# .env 파일 로드
+load_dotenv()
+
+# 환경 변수 읽기
+openai_api_key = os.getenv('OPENAI_API_KEY')
+
+# OpenAI API 키 설정
+openai.api_key = openai_api_key
+llm = OpenAI(api_key=openai_api_key, model="text-davinci-003")
+
 timestamp = datetime.datetime.now().strftime("%Y%m%d_%H%M%S")
 
-# LLM을 사용하여 프롬프트 분석 및 작업 분리
-def analyze_prompt(prompt):
-    tasks = set()  # 중복 작업 방지를 위해 set 사용
-    doc = nlp(prompt)
+def analyze_prompt_with_langchain(prompt):
+    prompt_template = PromptTemplate.from_template("Analyze the following prompt and list tasks:\n\nPrompt: {prompt}\n\nTasks:")
+    formatted_prompt = prompt_template.format(prompt=prompt)
     
-    print("Analyzing prompt:")
-    for sent in doc.sents:
-        print(f"Sentence: {sent.text}")
-        for token in sent:
-            print(f"Token: {token.text}, Lemma: {token.lemma_}, POS: {token.pos_}, Head: {token.head.text}, Dependency: {token.dep_}")
-            if token.pos_ == "VERB":  # 동사인 경우 작업 추출
-                if "하늘" in sent.text or "날씨" in sent.text:
-                    if "맑음" in sent.text or "맑은 하늘" in sent.text or "맑고" in sent.text or "화창" in sent.text:
-                        tasks.add("clear_sky")
-                    elif "구름" in sent.text:
-                        tasks.add("cloudy_sky")
-                    elif "흐림" in sent.text or "흐린" in sent.text:
-                        tasks.add("overcast_sky")
-                    elif "번개" in sent.text or "천둥" in sent.text:
-                        tasks.add("stormy_sky")
-                    elif "비" in sent.text:
-                        tasks.add("rainy_sky")
-                    elif "눈" in sent.text:
-                        tasks.add("snowy_sky")
-                    elif "무지개" in sent.text:
-                        tasks.add("rainbow_sky")
-                if "사람" in sent.text or "사람들" in sent.text:
-                    tasks.add("remove_people")
-    return list(tasks)
+    response = llm(formatted_prompt)
+    tasks = response.strip().split("\n")
+    tasks = [task.strip() for task in tasks if task.strip()]
+    return tasks
 
 # GroundingSAM 및 inpainting을 위한 명령 실행 함수
 def run_command(command):
@@ -43,33 +34,40 @@ def run_command(command):
 
 def generate_command(task, image_path, output_dir):
     base_command = "CUDA_VISIBLE_DEVICES=0 python"
-    script = "grounded_sam_inpainting_demo_custom_mask.py"
+    script = ""
     det_prompt = ""
     inpaint_prompt = ""
     
     if task == "clear_sky":
+        script = "grounded_sam_inpainting_demo_custom_mask.py"
         det_prompt = "sky"
-        inpaint_prompt = "A clear blue sky."
+        inpaint_prompt = "A bright day clear blue sky."
     elif task == "cloudy_sky":
+        script = "grounded_sam_inpainting_demo_custom_mask.py"
         det_prompt = "sky"
         inpaint_prompt = "A cloudy sky."
     elif task == "overcast_sky":
+        script = "grounded_sam_inpainting_demo_custom_mask.py"
         det_prompt = "sky"
         inpaint_prompt = "An overcast sky."
     elif task == "stormy_sky":
+        script = "grounded_sam_inpainting_demo_custom_mask.py"
         det_prompt = "sky"
         inpaint_prompt = "A stormy sky with lightning."
     elif task == "rainy_sky":
+        script = "grounded_sam_inpainting_demo_custom_mask.py"
         det_prompt = "sky"
         inpaint_prompt = "A rainy sky."
     elif task == "snowy_sky":
+        script = "grounded_sam_inpainting_demo_custom_mask.py"
         det_prompt = "sky"
         inpaint_prompt = "A snowy sky."
     elif task == "rainbow_sky":
+        script = "grounded_sam_inpainting_demo_custom_mask.py"
         det_prompt = "sky"
         inpaint_prompt = "A sky with a rainbow."
     elif task == "remove_people":
-        script = "grounded_sam_remove_select.py"
+        script = "grounded_sam_remove.py"
         det_prompt = "person"
         inpaint_prompt = ""
 
@@ -96,7 +94,7 @@ def main_workflow(prompt, image_path):
         os.makedirs(output_dir)
 
     # 프롬프트 분석 및 작업 분리
-    tasks = analyze_prompt(prompt)
+    tasks = analyze_prompt_with_langchain(prompt)
     
     print(f"Tasks identified: {tasks}")
     
@@ -111,6 +109,6 @@ def main_workflow(prompt, image_path):
             image_path = os.path.join(output_dir, "output_image.jpg")
 
 if __name__ == "__main__":
-    prompt = "맑은 하늘로 변경해주고, 사람들을 지워줘"
-    image_path = './assets/raw_image2.jpg'
+    prompt = "날씨를 번개 치게 변경하고, 사람들을 지워줘"
+    image_path = './assets/test.jpg'
     main_workflow(prompt, image_path)

@@ -2,40 +2,82 @@ import subprocess
 import datetime
 import os
 import spacy
+from sentence_transformers import SentenceTransformer, util
 
-# spaCy 모델 로드
+# Spacy 언어 모델 로드
 nlp = spacy.load("ko_core_news_sm")
 timestamp = datetime.datetime.now().strftime("%Y%m%d_%H%M%S")
 
-# LLM을 사용하여 프롬프트 분석 및 작업 분리
+# Sentence Transformers 모델 로드
+model = SentenceTransformer('jhgan/ko-sroberta-multitask')
+
+# 미리 정의된 변경 작업 관련 문장
+change_phrases = [
+    "변경해줘",
+    "바꿔줘",
+    "바꾸기",
+    "바꾸다",
+    "변경하고",
+    "바꿔"
+]
+
+# 미리 정의된 제거 작업 관련 문장
+remove_phrases = [
+    "제거",
+    "지우기",
+    "지워",
+    "없애기",
+    "지우다"
+]
+
+# 변경 작업 관련 문장의 임베딩
+change_embeddings = model.encode(change_phrases)
+# 제거 작업 관련 문장의 임베딩
+remove_embeddings = model.encode(remove_phrases)
+
 def analyze_prompt(prompt):
-    tasks = set()  # 중복 작업 방지를 위해 set 사용
+    change_tasks = set()  # 변경 작업
+    remove_tasks = set()  # 제거 작업
     doc = nlp(prompt)
     
     print("Analyzing prompt:")
     for sent in doc.sents:
         print(f"Sentence: {sent.text}")
-        for token in sent:
-            print(f"Token: {token.text}, Lemma: {token.lemma_}, POS: {token.pos_}, Head: {token.head.text}, Dependency: {token.dep_}")
-            if token.pos_ == "VERB":  # 동사인 경우 작업 추출
-                if "하늘" in sent.text or "날씨" in sent.text:
-                    if "맑음" in sent.text or "맑은 하늘" in sent.text or "맑고" in sent.text or "화창" in sent.text:
-                        tasks.add("clear_sky")
-                    elif "구름" in sent.text:
-                        tasks.add("cloudy_sky")
-                    elif "흐림" in sent.text or "흐린" in sent.text:
-                        tasks.add("overcast_sky")
-                    elif "번개" in sent.text or "천둥" in sent.text:
-                        tasks.add("stormy_sky")
-                    elif "비" in sent.text:
-                        tasks.add("rainy_sky")
-                    elif "눈" in sent.text:
-                        tasks.add("snowy_sky")
-                    elif "무지개" in sent.text:
-                        tasks.add("rainbow_sky")
-                if "사람" in sent.text or "사람들" in sent.text:
-                    tasks.add("remove_people")
-    return list(tasks)
+
+        # 현재 문장의 임베딩 계산
+        sent_embedding = model.encode(sent.text)
+
+        # 변경 작업과의 유사도 계산
+        change_cos_sim = util.pytorch_cos_sim(sent_embedding, change_embeddings)
+        # 제거 작업과의 유사도 계산
+        remove_cos_sim = util.pytorch_cos_sim(sent_embedding, remove_embeddings)
+
+        # 유사도가 0.6 이상인 경우 변경 작업으로 간주
+        if change_cos_sim.max() >= 0.6:
+            if "하늘" in sent.text or "날씨" in sent.text:
+                if "맑음" in sent.text or "푸른" in sent.text or "화창" in sent.text:
+                    change_tasks.add("clear_sky")
+                elif "구름" in sent.text:
+                    change_tasks.add("cloudy_sky")
+                elif "흐림" in sent.text or "흐린" in sent.text:
+                    change_tasks.add("overcast_sky")
+                elif "번개" in sent.text or "천둥" in sent.text:
+                    change_tasks.add("stormy_sky")
+                elif "비" in sent.text:
+                    change_tasks.add("rainy_sky")
+                elif "눈" in sent.text:
+                    change_tasks.add("snowy_sky")
+                elif "무지개" in sent.text:
+                    change_tasks.add("rainbow_sky")
+
+        # 유사도가 0.6 이상인 경우 제거 작업으로 간주
+        if remove_cos_sim.max() >= 0.6:
+            if "사람" in sent.text or "사람들" in sent.text:
+                remove_tasks.add("remove_people")
+    
+    # 변경 작업이 먼저 오도록 순서를 조정
+    tasks = list(change_tasks) + list(remove_tasks)
+    return tasks
 
 # GroundingSAM 및 inpainting을 위한 명령 실행 함수
 def run_command(command):

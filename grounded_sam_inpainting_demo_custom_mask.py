@@ -201,8 +201,8 @@ if __name__ == "__main__":
     bw_mask_pil = Image.fromarray(bw_mask, mode="L")
     bw_mask_pil.save(os.path.join(output_dir, "mask_bw.jpg"))
     
-    kernel_size_row = 0
-    kernel_size_col = 0
+    kernel_size_row = 2
+    kernel_size_col = 2
     kernel = np.ones((kernel_size_row, kernel_size_col), np.uint8)
 
     dilation_image = cv2.dilate(bw_mask, kernel, iterations=1)  #// make dilation image
@@ -227,6 +227,6 @@ if __name__ == "__main__":
     mask_image = Image.open(os.path.join(output_dir, "dilated_mask_bw.jpg")).convert("RGB")
 
     # 인페인팅
-    inpaint_result = inpaint_pipeline(prompt=inpaint_prompt, image=init_image, mask_image=mask_image, height=1024, width=1024, negative_prompt="objects.")
+    inpaint_result = inpaint_pipeline(prompt=inpaint_prompt, image=init_image, mask_image=mask_image, height=1024, width=1024, negative_prompt="objects. buildings. mountains.trees. ")
     inpainted_image = inpaint_result.images[0]
     inpainted_image.save(os.path.join(output_dir, "inpainted_image.jpg"))
