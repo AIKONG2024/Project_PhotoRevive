@@ -201,8 +201,8 @@ if __name__ == "__main__":
     bw_mask_pil = Image.fromarray(bw_mask, mode="L")
     bw_mask_pil.save(os.path.join(output_dir, "mask_bw.jpg"))
     
-    kernel_size_row = 2
-    kernel_size_col = 2
+    kernel_size_row = 3
+    kernel_size_col = 3
     kernel = np.ones((kernel_size_row, kernel_size_col), np.uint8)
 
     dilation_image = cv2.dilate(bw_mask, kernel, iterations=1)  #// make dilation image

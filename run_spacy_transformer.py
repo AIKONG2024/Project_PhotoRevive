@@ -51,11 +51,11 @@ def analyze_prompt(prompt):
         change_cos_sim = util.pytorch_cos_sim(sent_embedding, change_embeddings)
         # 제거 작업과의 유사도 계산
         remove_cos_sim = util.pytorch_cos_sim(sent_embedding, remove_embeddings)
-
-        # 유사도가 0.6 이상인 경우 변경 작업으로 간주
-        if change_cos_sim.max() >= 0.6:
+        print(change_cos_sim)
+        print(remove_cos_sim)
+        if change_cos_sim.max() >= 0.3:
             if "하늘" in sent.text or "날씨" in sent.text:
-                if "맑음" in sent.text or "푸른" in sent.text or "화창" in sent.text:
+                if "맑은" in sent.text or "맑음" in sent.text or "푸른" in sent.text or "화창" in sent.text:
                     change_tasks.add("clear_sky")
                 elif "구름" in sent.text:
                     change_tasks.add("cloudy_sky")
@@ -69,9 +69,7 @@ def analyze_prompt(prompt):
                     change_tasks.add("snowy_sky")
                 elif "무지개" in sent.text:
                     change_tasks.add("rainbow_sky")
-
-        # 유사도가 0.6 이상인 경우 제거 작업으로 간주
-        if remove_cos_sim.max() >= 0.6:
+        if remove_cos_sim.max() >= 0.3:
             if "사람" in sent.text or "사람들" in sent.text:
                 remove_tasks.add("remove_people")
     
@@ -85,7 +83,7 @@ def run_command(command):
 
 def generate_command(task, image_path, output_dir):
     base_command = "CUDA_VISIBLE_DEVICES=0 python"
-    script = "grounded_sam_inpainting_demo_custom_mask.py"
+    script = "grounded_sam_inpainting_2_demo_custom_mask.py"
     det_prompt = ""
     inpaint_prompt = ""
     
@@ -153,6 +151,6 @@ def main_workflow(prompt, image_path):
             image_path = os.path.join(output_dir, "output_image.jpg")
 
 if __name__ == "__main__":
-    prompt = "맑은 하늘로 변경해주고, 사람들을 지워줘"
-    image_path = './assets/raw_image2.jpg'
+    prompt = "맑은 하늘로 만들어줘, 사람들을 지워줘"
+    image_path = './assets/test1.jpg'
     main_workflow(prompt, image_path)

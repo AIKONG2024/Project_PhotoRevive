@@ -201,8 +201,8 @@ if __name__ == "__main__":
     bw_mask_pil = Image.fromarray(bw_mask, mode="L")
     bw_mask_pil.save(os.path.join(output_dir, "mask_bw.jpg"))
     
-    kernel_size_row = 6
-    kernel_size_col = 6
+    kernel_size_row = 2
+    kernel_size_col = 2
     kernel = np.ones((kernel_size_row, kernel_size_col), np.uint8)
 
     dilation_image = cv2.dilate(bw_mask, kernel, iterations=1)  #// make dilation image
@@ -218,7 +218,7 @@ if __name__ == "__main__":
     #     cache_dir=cache_dir
     # ).to(device)
     inpaint_pipeline = StableDiffusionInpaintPipeline.from_pretrained(
-    "stabilityai/stable-diffusion-2-inpainting",
+    "runwayml/stable-diffusion-inpainting",
     torch_dtype=torch.float16,
     ).to(device)
 
@@ -227,6 +227,6 @@ if __name__ == "__main__":
     mask_image = Image.open(os.path.join(output_dir, "dilated_mask_bw.jpg")).convert("RGB")
 
     # 인페인팅
-    inpaint_result = inpaint_pipeline(prompt=inpaint_prompt, image=init_image, mask_image=mask_image)
+    inpaint_result = inpaint_pipeline(prompt=inpaint_prompt, image=init_image, mask_image=mask_image, height=1024, width=1024)
     inpainted_image = inpaint_result.images[0]
     inpainted_image.save(os.path.join(output_dir, "inpainted_image.jpg"))
