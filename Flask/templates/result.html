@@ -1,0 +1,58 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>보정 결과</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            height: 100vh;
+            margin: 0;
+        }
+        .container {
+            display: flex;
+            flex-direction: row;
+            width: 80%;
+        }
+        .left, .right {
+            flex: 1;
+            padding: 20px;
+        }
+        .left {
+            border-right: 1px solid #ccc;
+        }
+        .right {
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            flex-direction: column;
+        }
+        img {
+            max-width: 100%;
+            height: auto;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <div class="left">
+            <h1>입력이미지</h1>
+            <img src="{{ url_for('static', filename='uploads/' + filename) }}" alt="업로드된 이미지">
+            <p>프롬프트: {{ prompt }}</p>
+        </div>
+        <div class="right">
+            <h1>결과</h1>
+            <img src="{{ url_for('static', filename='results/' + "raw_image.png") }}" alt="업로드된 이미지2">
+            <p>작업 결과: {{ prompt }}</p>
+        </div>
+    </div>
+    <div class="container">
+        <form method="get" enctype="multipart/form-data" action="/">
+            <input type="submit" value="다른 이미지 생성">
+        </form>
+    </div>
+    
+</body>
+</html>

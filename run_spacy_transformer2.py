@@ -30,6 +30,10 @@ remove_phrases = [
     "지우다"
 ]
 
+weather_phrases = [
+    
+]
+
 # 변경 작업 관련 문장의 임베딩
 change_embeddings = model.encode(change_phrases)
 # 제거 작업 관련 문장의 임베딩

@@ -31,7 +31,7 @@ from io import BytesIO
 from diffusers import StableDiffusionInpaintPipeline
 import datetime
 # 시간
-timestamp = datetime.datetime.now().strftime("%Y%m%d_%H%M%S")
+# timestamp = datetime.datetime.now().strftime("%Y%m%d_%H%M%S")
 
 def load_image(image_path):
     # 이미지 로드

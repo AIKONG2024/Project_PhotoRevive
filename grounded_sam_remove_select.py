@@ -19,7 +19,7 @@ from GroundingDINO.groundingdino.util.slconfig import SLConfig
 from GroundingDINO.groundingdino.util.utils import clean_state_dict, get_phrases_from_posmap
 
 # 타임스탬프
-timestamp = datetime.datetime.now().strftime("%Y%m%d_%H%M%S")
+# timestamp = datetime.datetime.now().strftime("%Y%m%d_%H%M%S")
 
 def load_image(image_path):
     # 이미지 로드
@@ -184,7 +184,7 @@ if __name__ == "__main__":
     image_path = args.input_image
     det_prompt = args.det_prompt
     inpaint_prompt = args.inpaint_prompt
-    output_dir = args.output_dir + f"/removed/"
+    output_dir = args.output_dir
     cache_dir = args.cache_dir
     box_threshold = args.box_threshold
     text_threshold = args.text_threshold
@@ -281,7 +281,7 @@ if __name__ == "__main__":
 
     # 인페인팅 파이프라인
     script2 = f"""
-    iopaint run --model=zits --device=cpu --image={output_dir + "raw_image.jpg"} --mask={output_dir + "dilated_mask_bw.jpg"} --output={output_dir}
+    iopaint run --model=lama --device=cpu --image={output_dir + "raw_image.jpg"} --mask={output_dir + "dilated_mask_bw.jpg"} --output={output_dir}
     """
 
     def run(command):
