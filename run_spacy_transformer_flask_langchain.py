@@ -117,7 +117,6 @@ def process():
     try:
         output_image, tasks = main_workflow(prompt, file_path, bbox)
         print(output_image)
-        print("=================")
         return render_template('result.html', filename=filename, prompt=prompt, output_image=output_image, tasks=tasks)
     except Exception as e:
         return f"An error occurred: {e}"
@@ -127,4 +126,4 @@ if __name__ == '__main__':
         os.makedirs(app.config['UPLOAD_FOLDER'])
     if not os.path.exists(app.config['OUTPUT_FOLDER']):
         os.makedirs(app.config['OUTPUT_FOLDER'])
-    app.run(host='0.0.0.0', port=9900)
+    app.run(host='0.0.0.0', port=9000)

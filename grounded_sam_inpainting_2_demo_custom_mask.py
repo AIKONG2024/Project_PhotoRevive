@@ -229,4 +229,4 @@ if __name__ == "__main__":
     # 인페인팅
     inpaint_result = inpaint_pipeline(prompt=inpaint_prompt, image=init_image, mask_image=mask_image, height=1024, width=1024, negative_prompt="objects. buildings. mountains.trees. ")
     inpainted_image = inpaint_result.images[0]
-    inpainted_image.save(os.path.join(output_dir, "raw_image.jpg"))
+    inpainted_image.save(os.path.join(output_dir, "inpainted_image.jpg"))

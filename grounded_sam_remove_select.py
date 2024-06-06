@@ -118,13 +118,13 @@ def main(args):
         model, image, args.det_prompt, args.box_threshold, args.text_threshold, device=args.device
     )
 
-    # 바운딩 박스 좌표 가져오기 (중앙 x, y, w, h 형식으로 변환)
+    # 바운딩 박스 좌표 가져오기 (좌상단 x, y, 우하단 x, y 형식으로 변환)
     if args.bbox:
         print(args.bbox)
-        x_min, y_min, x_max, y_max = map(float, args.bbox.split(','))
+        x_min, y_min, width, height = map(float, args.bbox.split(','))
+        x_max = x_min + width
+        y_max = y_min + height
         exclude_mask = []
-        print("==========================")
-        #[tensor(351.9951), tensor(218.9548), tensor(624.1138), tensor(906.7933)]
         print([x_min, y_min, x_max, y_max])
         img_width, img_height = image_pil.size
         converted_boxes_filt = convert_boxes_format(boxes_filt, img_width, img_height)
