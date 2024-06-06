@@ -109,7 +109,7 @@ def generate_command(task, image_path, output_dir):
         det_prompt = "sky"
         inpaint_prompt = "A sky with a rainbow."
     elif task == "remove_people":
-        script = "grounded_sam_remove_select.py"
+        script = "grounded_sam_remove_select_cv.py"
         det_prompt = "person"
         inpaint_prompt = ""
 
@@ -184,4 +184,4 @@ def process(filename, prompt):
 if __name__ == '__main__':
     if not os.path.exists(app.config['UPLOAD_FOLDER']):
         os.makedirs(app.config['UPLOAD_FOLDER'])
-    app.run(host='0.0.0.0', port=5000)
+    app.run(host='0.0.0.0', port=9900)

@@ -8,13 +8,15 @@
             display: flex;
             justify-content: center;
             align-items: center;
+            flex-direction: column;
             height: 100vh;
             margin: 0;
         }
         .container {
             display: flex;
             flex-direction: row;
-            width: 80%;
+            width: 100%;
+            margin-bottom: 20px;
         }
         .left, .right {
             flex: 1;
@@ -33,6 +35,10 @@
             max-width: 100%;
             height: auto;
         }
+        .task-details {
+            margin-top: 20px;
+            text-align: left;
+        }
     </style>
 </head>
 <body>
@@ -40,12 +46,20 @@
         <div class="left">
             <h1>입력이미지</h1>
             <img src="{{ url_for('static', filename='uploads/' + filename) }}" alt="업로드된 이미지">
-            <p>프롬프트: {{ prompt }}</p>
+            <div class="task-details">
+                <strong>task:</strong> {{ prompt }}<br>
+            </div>
         </div>
         <div class="right">
             <h1>결과</h1>
-            <img src="{{ url_for('static', filename='outputs/' + "raw_image.png") }}" alt="업로드된 이미지2">
-            <p>작업 결과: {{ prompt }}</p>
+            <img src="{{ url_for('static', filename='outputs/' + output_image) }}" alt="출력 이미지">
+            <div class="task-details">
+                {% for task in tasks %}
+                    <strong>task:</strong> {{ task.label }}<br>
+                    <strong>det prompt:</strong> {{ task.det_prompt }}<br>
+                    <strong>inpaint prompt:</strong> {{ task.inpainting_prompt }}
+                {% endfor %}
+            </div>
         </div>
     </div>
     <div class="container">
@@ -53,6 +67,5 @@
             <input type="submit" value="다른 이미지 생성">
         </form>
     </div>
-    
 </body>
 </html>

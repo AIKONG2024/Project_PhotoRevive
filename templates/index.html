@@ -14,7 +14,7 @@
         .container {
             display: flex;
             flex-direction: row;
-            width: 80%;
+            width: 100%;
         }
         .center {
             display: flex;
@@ -40,18 +40,86 @@
             color: white;
             border: none;
         }
+        canvas {
+            border: 1px solid black;
+            display: none;
+        }
     </style>
 </head>
 <body>
     <div class="container">
         <div class="center">
             <h1>추억의 사진 보정</h1>
-            <form method="post" enctype="multipart/form-data" action="/upload">
-                <input type="file" name="file" required>
-                <input type="text" name="prompt" placeholder="추가 설명을 입력하세요" required>
+            <form id="upload-form" method="post" enctype="multipart/form-data" action="/upload">
+                <input type="file" id="file" name="file" required>
+                <input type="text" id="prompt" name="prompt" placeholder="추가 설명을 입력하세요" required>
+                <input type="hidden" id="bbox" name="bbox">
+                <canvas id="canvas" width="500" height="500"></canvas>
+                <div> 남기고 싶은 객체가 있다면 마우스로 영역을 잡아주세요.</div>
                 <input type="submit" value="업로드">
             </form>
         </div>
     </div>
+    <script>
+        const canvas = document.getElementById('canvas');
+        const ctx = canvas.getContext('2d');
+        let startX, startY, endX, endY, isDrawing = false;
+        let imgWidth, imgHeight;
+
+        function getMousePos(canvas, evt) {
+            const rect = canvas.getBoundingClientRect();
+            return {
+                x: (evt.clientX - rect.left) / (rect.right - rect.left) * canvas.width,
+                y: (evt.clientY - rect.top) / (rect.bottom - rect.top) * canvas.height
+            };
+        }
+
+        canvas.addEventListener('mousedown', (e) => {
+            const pos = getMousePos(canvas, e);
+            startX = pos.x;
+            startY = pos.y;
+            isDrawing = true;
+        });
+
+        canvas.addEventListener('mousemove', (e) => {
+            if (isDrawing) {
+                const pos = getMousePos(canvas, e);
+                endX = pos.x;
+                endY = pos.y;
+                ctx.clearRect(0, 0, canvas.width, canvas.height);
+                ctx.drawImage(image, 0, 0, canvas.width, canvas.height);
+                ctx.strokeRect(startX, startY, endX - startX, endY - startY);
+            }
+        });
+
+        canvas.addEventListener('mouseup', () => {
+            isDrawing = false;
+            endX = Math.min(Math.max(0, endX), canvas.width);
+            endY = Math.min(Math.max(0, endY), canvas.height);
+            startX = Math.min(Math.max(0, startX), canvas.width);
+            startY = Math.min(Math.max(0, startY), canvas.height);
+            const bbox = `${(startX / canvas.width) * imgWidth},${(startY / canvas.height) * imgHeight},${((endX - startX) / canvas.width) * imgWidth},${((endY - startY) / canvas.height) * imgHeight}`;
+            document.getElementById('bbox').value = bbox;
+            console.log(`Bounding box: ${bbox}`);
+        });
+
+        const image = new Image();
+        document.getElementById('file').addEventListener('change', (e) => {
+            const file = e.target.files[0];
+            const reader = new FileReader();
+            reader.onload = (event) => {
+                image.onload = () => {
+                    canvas.style.display = 'block';
+                    canvas.width = image.width;
+                    canvas.height = image.height;
+                    imgWidth = image.width;
+                    imgHeight = image.height;
+                    ctx.drawImage(image, 0, 0, canvas.width, canvas.height);
+                }
+                image.src = event.target.result;
+            }
+            reader.readAsDataURL(file);
+        });
+    </script>
 </body>
 </html>
