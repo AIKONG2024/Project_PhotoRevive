@@ -1,8 +1,10 @@
-from flask import Flask, request, render_template, url_for, redirect
+from flask import Flask, request, render_template, redirect, url_for, jsonify
 import os
 import subprocess
 from langchain_task import LangChain
 import json
+from PIL import Image
+import time
 
 app = Flask(__name__)
 app.config['UPLOAD_FOLDER'] = 'static/uploads/'
@@ -15,12 +17,10 @@ def run_command(command):
     subprocess.run(command, shell=True, check=True, encoding="utf-8")
 
 def generate_command(task, image_path, output_dir, bbox):
-    task_flag = False 
     if task['label'] == "날씨 변경":
         command = generate_weather_change_command(task, image_path, output_dir)
-        task_flag = True
     elif task['label'] == "객체 제거":
-        command = generate_object_removal_command(task, image_path, output_dir, bbox, task_flag)
+        command = generate_object_removal_command(task, image_path, output_dir, bbox)
     return command
 
 def generate_weather_change_command(task, image_path, output_dir):
@@ -43,7 +43,7 @@ def generate_weather_change_command(task, image_path, output_dir):
     """
     return command
 
-def generate_object_removal_command(task, image_path, output_dir, bbox, task_flag):
+def generate_object_removal_command(task, image_path, output_dir, bbox):
     script = "grounded_sam_remove_select.py"
     det_prompt = task['det_prompt']
     inpaint_prompt = task['inpainting_prompt']
@@ -60,8 +60,7 @@ def generate_object_removal_command(task, image_path, output_dir, bbox, task_fla
     --det_prompt "{det_prompt}" \
     --inpaint_prompt "{inpaint_prompt}" \
     --device "cuda" \
-    --bbox "{bbox}" \
-    --task_flag {task_flag}
+    --bbox "{bbox}" 
     """
     return command
 
@@ -70,15 +69,17 @@ def main_workflow(prompt, image_path, bbox):
 
     if not os.path.exists(output_dir):
         os.makedirs(output_dir)
+        
+    image_pil = Image.open(image_path).convert("RGB")
+    image_pil.save(os.path.join(output_dir, "inpainted_image.jpg"))
 
     tasks = analyze_prompt(prompt)
     tasks = json.loads(tasks)
     print(tasks)
 
-    # '날씨 변경' 작업을 항상 먼저 수행하도록 정렬
     tasks['tasks'].sort(key=lambda x: x['label'] != '날씨 변경')
 
-    image_paths = [image_path]  # 각 작업의 결과 이미지를 저장할 리스트
+    image_paths = [image_path]
 
     for task in tasks['tasks']:
         command = generate_command(task, image_paths[-1], output_dir, bbox)
@@ -97,39 +98,50 @@ def index():
 @app.route('/upload', methods=['POST'])
 def upload_file():
     if 'file' not in request.files:
-        return 'No file part'
+        return 'No file part', 400
     file = request.files['file']
     prompt = request.form['prompt']
-    bbox = request.form.get('bbox', "0.0,0.0,0.0,0.0")  # 기본값 설정
+    bbox = request.form.get('bbox', "0.0,0.0,0.0,0.0")
     if file.filename == '':
-        return 'No selected file'
+        return 'No selected file', 400
     if file:
         filename = file.filename
         file_path = os.path.join(app.config['UPLOAD_FOLDER'], filename)
         file.save(file_path)
         
-        try:
-            print(f"BBox: {bbox}")  # 바운딩 박스 출력
-            return redirect(url_for('process', filename=filename, prompt=prompt, bbox=bbox))
-        except Exception as e:
-            return f"An error occurred: {e}"
+        return redirect(url_for('loading', filename=filename, prompt=prompt, bbox=bbox))
 
-@app.route('/process')
-def process():
+@app.route('/loading')
+def loading():
     filename = request.args.get('filename')
     prompt = request.args.get('prompt')
     bbox = request.args.get('bbox')
+    return render_template('loading.html', filename=filename, prompt=prompt, bbox=bbox)
+
+@app.route('/process', methods=['POST'])
+def process():
+    data = request.get_json()
+    filename = data['filename']
+    prompt = data['prompt']
+    bbox = data['bbox']
     file_path = os.path.join(app.config['UPLOAD_FOLDER'], filename)
     try:
         output_image, tasks = main_workflow(prompt, file_path, bbox)
-        print(output_image)
-        return render_template('result.html', filename=filename, prompt=prompt, output_image=output_image, tasks=tasks)
+        return jsonify({'status': 'complete', 'output_image': output_image, 'tasks': tasks})
     except Exception as e:
-        return f"An error occurred: {e}"
+        return jsonify({'status': 'error', 'message': str(e)})
+
+@app.route('/result')
+def result():
+    filename = request.args.get('filename')
+    prompt = request.args.get('prompt')
+    output_image = request.args.get('output_image')
+    tasks = json.loads(request.args.get('tasks'))
+    return render_template('result.html', filename=filename, prompt=prompt, output_image=output_image, tasks=tasks)
 
 if __name__ == '__main__':
     if not os.path.exists(app.config['UPLOAD_FOLDER']):
         os.makedirs(app.config['UPLOAD_FOLDER'])
     if not os.path.exists(app.config['OUTPUT_FOLDER']):
         os.makedirs(app.config['OUTPUT_FOLDER'])
-    app.run(host='0.0.0.0', port=5000)
+    app.run(host='0.0.0.0', debug=True, port=8080)

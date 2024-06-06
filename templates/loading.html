@@ -4,10 +4,40 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Processing...</title>
-    <meta http-equiv="refresh" content="5;url={{ url_for('process', filename=filename, prompt=prompt) }}">
 </head>
 <body>
     <h1>Processing your image...</h1>
     <p>Please wait while we process your image based on the given prompt.</p>
+    <script>
+        const filename = "{{ filename }}";
+        const prompt = "{{ prompt }}";
+        const bbox = "{{ bbox }}";
+
+        function checkStatus() {
+            fetch("/process", {
+                method: "POST",
+                headers: {
+                    "Content-Type": "application/json"
+                },
+                body: JSON.stringify({ filename: filename, prompt: prompt, bbox: bbox })
+            })
+            .then(response => response.json())
+            .then(data => {
+                if (data.status === "complete") {
+                    window.location.href = `/result?filename=${filename}&prompt=${prompt}&output_image=${data.output_image}&tasks=${encodeURIComponent(JSON.stringify(data.tasks))}`;
+                } else if (data.status === "error") {
+                    document.body.innerHTML = `<h1>Error</h1><p>${data.message}</p>`;
+                } else {
+                    setTimeout(checkStatus, 5000);
+                }
+            })
+            .catch(error => {
+                console.error("Error:", error);
+                setTimeout(checkStatus, 5000);
+            });
+        }
+
+        checkStatus();
+    </script>
 </body>
 </html>
