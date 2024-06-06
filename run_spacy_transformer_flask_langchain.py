@@ -15,10 +15,12 @@ def run_command(command):
     subprocess.run(command, shell=True, check=True, encoding="utf-8")
 
 def generate_command(task, image_path, output_dir, bbox):
+    task_flag = False 
     if task['label'] == "날씨 변경":
         command = generate_weather_change_command(task, image_path, output_dir)
+        task_flag = True
     elif task['label'] == "객체 제거":
-        command = generate_object_removal_command(task, image_path, output_dir, bbox)
+        command = generate_object_removal_command(task, image_path, output_dir, bbox, task_flag)
     return command
 
 def generate_weather_change_command(task, image_path, output_dir):
@@ -41,7 +43,7 @@ def generate_weather_change_command(task, image_path, output_dir):
     """
     return command
 
-def generate_object_removal_command(task, image_path, output_dir, bbox):
+def generate_object_removal_command(task, image_path, output_dir, bbox, task_flag):
     script = "grounded_sam_remove_select.py"
     det_prompt = task['det_prompt']
     inpaint_prompt = task['inpainting_prompt']
@@ -58,7 +60,8 @@ def generate_object_removal_command(task, image_path, output_dir, bbox):
     --det_prompt "{det_prompt}" \
     --inpaint_prompt "{inpaint_prompt}" \
     --device "cuda" \
-    --bbox "{bbox}"
+    --bbox "{bbox}" \
+    --task_flag {task_flag}
     """
     return command
 
@@ -72,6 +75,9 @@ def main_workflow(prompt, image_path, bbox):
     tasks = json.loads(tasks)
     print(tasks)
 
+    # '날씨 변경' 작업을 항상 먼저 수행하도록 정렬
+    tasks['tasks'].sort(key=lambda x: x['label'] != '날씨 변경')
+
     image_paths = [image_path]  # 각 작업의 결과 이미지를 저장할 리스트
 
     for task in tasks['tasks']:
@@ -80,7 +86,7 @@ def main_workflow(prompt, image_path, bbox):
         if task['label'] == "날씨 변경":
            image_path = "inpainted_image.jpg"
         elif task['label'] == "객체 제거":
-           image_path = "raw_image.png"
+           image_path = "inpainted_image.png"
 
     return image_path, tasks['tasks']
 
@@ -126,4 +132,4 @@ if __name__ == '__main__':
         os.makedirs(app.config['UPLOAD_FOLDER'])
     if not os.path.exists(app.config['OUTPUT_FOLDER']):
         os.makedirs(app.config['OUTPUT_FOLDER'])
-    app.run(host='0.0.0.0', port=9000)
+    app.run(host='0.0.0.0', port=5000)

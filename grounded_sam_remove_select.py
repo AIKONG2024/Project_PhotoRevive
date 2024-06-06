@@ -19,8 +19,11 @@ from GroundingDINO.groundingdino.util.utils import clean_state_dict, get_phrases
 
 def load_image(image_path, output_dir):
     image_pil = Image.open(image_path).convert("RGB")
-    # 원본 이미지 시각화
-    image_pil.save(os.path.join(output_dir, "raw_image.jpg"))
+    
+    if args.task_flag == False:
+        # 원본 이미지 시각화
+        image_pil.save(os.path.join(output_dir, "inpainted_image.jpg"))
+    
     transform = T.Compose([
         T.RandomResize([800], max_size=1333),
         T.ToTensor(),
@@ -196,7 +199,7 @@ def main(args):
 
     # 인페인팅 파이프라인
     script2 = f"""
-    iopaint run --model=lama --device=cpu --image={os.path.join(args.output_dir, "raw_image.jpg")} --mask={os.path.join(args.output_dir, "dilated_mask_bw.jpg")} --output={args.output_dir}
+    iopaint run --model=lama --device=cpu --image={os.path.join(args.output_dir, "inpainted_image.jpg")} --mask={os.path.join(args.output_dir, "dilated_mask_bw.jpg")} --output={args.output_dir}
     """
     
     def run(command):
@@ -218,6 +221,7 @@ if __name__ == "__main__":
     parser.add_argument("--text_threshold", type=float, default=0.5, help="text threshold")
     parser.add_argument("--bbox", type=str, help="bounding box coordinates")
     parser.add_argument("--device", type=str, default="cuda", help="device to use for inference")
+    parser.add_argument("--task_flag", type=bool, default= False, help="change task flag")
     args = parser.parse_args()
 
     main(args)
