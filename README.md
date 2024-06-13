@@ -7,3 +7,5 @@ SegmentAnything(Segemtation)
 StableDiffusion2(Generative)  
 ZITs, LaMa (Generative)  
 Flask(WebUI)
+
+## WebUI 추가
