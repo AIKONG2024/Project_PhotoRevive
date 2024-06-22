@@ -1,80 +1,35 @@
-import subprocess
-import datetime
+from flask import Flask, request, render_template, redirect, url_for, jsonify
 import os
-import spacy
+import subprocess
+from langchain_task_gpt3_5_tb import LangChain
+import json
+from PIL import Image
+import time
 
-# spaCy 모델 로드
-nlp = spacy.load("ko_core_news_sm")
-timestamp = datetime.datetime.now().strftime("%Y%m%d_%H%M%S")
+app = Flask(__name__)
+app.config['UPLOAD_FOLDER'] = 'static/uploads/'
+app.config['OUTPUT_FOLDER'] = 'static/outputs/'
 
-# LLM을 사용하여 프롬프트 분석 및 작업 분리
 def analyze_prompt(prompt):
-    tasks = set()  # 중복 작업 방지를 위해 set 사용
-    doc = nlp(prompt)
-    
-    print("Analyzing prompt:")
-    for sent in doc.sents:
-        print(f"Sentence: {sent.text}")
-        for token in sent:
-            print(f"Token: {token.text}, Lemma: {token.lemma_}, POS: {token.pos_}, Head: {token.head.text}, Dependency: {token.dep_}")
-            if token.pos_ == "VERB":  # 동사인 경우 작업 추출
-                if "하늘" in sent.text or "날씨" in sent.text:
-                    if "맑음" in sent.text or "맑은 하늘" in sent.text or "맑고" in sent.text or "화창" in sent.text:
-                        tasks.add("clear_sky")
-                    elif "구름" in sent.text:
-                        tasks.add("cloudy_sky")
-                    elif "흐림" in sent.text or "흐린" in sent.text:
-                        tasks.add("overcast_sky")
-                    elif "번개" in sent.text or "천둥" in sent.text:
-                        tasks.add("stormy_sky")
-                    elif "비" in sent.text:
-                        tasks.add("rainy_sky")
-                    elif "눈" in sent.text:
-                        tasks.add("snowy_sky")
-                    elif "무지개" in sent.text:
-                        tasks.add("rainbow_sky")
-                if "사람" in sent.text or "사람들" in sent.text:
-                    tasks.add("remove_people")
-    return list(tasks)
+    return LangChain().process_user_input(prompt)
 
-# GroundingSAM 및 inpainting을 위한 명령 실행 함수
 def run_command(command):
     subprocess.run(command, shell=True, check=True, encoding="utf-8")
 
-def generate_command(task, image_path, output_dir):
-    base_command = "CUDA_VISIBLE_DEVICES=0 python"
-    script = "grounded_sam_inpainting_demo_custom_mask.py"
-    det_prompt = ""
-    inpaint_prompt = ""
-    
-    if task == "clear_sky":
-        det_prompt = "sky"
-        inpaint_prompt = "A clear blue sky."
-    elif task == "cloudy_sky":
-        det_prompt = "sky"
-        inpaint_prompt = "A cloudy sky."
-    elif task == "overcast_sky":
-        det_prompt = "sky"
-        inpaint_prompt = "An overcast sky."
-    elif task == "stormy_sky":
-        det_prompt = "sky"
-        inpaint_prompt = "A stormy sky with lightning."
-    elif task == "rainy_sky":
-        det_prompt = "sky"
-        inpaint_prompt = "A rainy sky."
-    elif task == "snowy_sky":
-        det_prompt = "sky"
-        inpaint_prompt = "A snowy sky."
-    elif task == "rainbow_sky":
-        det_prompt = "sky"
-        inpaint_prompt = "A sky with a rainbow."
-    elif task == "remove_people":
-        script = "grounded_sam_remove_select.py"
-        det_prompt = "person"
-        inpaint_prompt = ""
+def generate_command(task, image_path, output_dir, bbox):
+    if task['label'] == "날씨 변경":
+        command = generate_weather_change_command(task, image_path, output_dir)
+    elif task['label'] == "객체 제거":
+        command = generate_object_removal_command(task, image_path, output_dir, bbox)
+    return command
 
+def generate_weather_change_command(task, image_path, output_dir):
+    script = "grounded_sam_inpainting_2_demo_custom_mask.py"
+    det_prompt = task['det_prompt']
+    inpaint_prompt = task['inpainting_prompt']
+    
     command = f"""
-    {base_command} {script} \
+    CUDA_VISIBLE_DEVICES=0 python {script} \
     --config Grounded-Segment-Anything/GroundingDINO/groundingdino/config/GroundingDINO_SwinT_OGC.py \
     --grounded_checkpoint Grounded-Segment-Anything/groundingdino_swint_ogc.pth \
     --sam_checkpoint Grounded-Segment-Anything/sam_vit_h_4b8939.pth \
@@ -88,29 +43,105 @@ def generate_command(task, image_path, output_dir):
     """
     return command
 
-def main_workflow(prompt, image_path):
+def generate_object_removal_command(task, image_path, output_dir, bbox):
+    script = "grounded_sam_remove_select.py"
+    det_prompt = task['det_prompt']
+    inpaint_prompt = task['inpainting_prompt']
     
-    output_dir = f"./outputs/{timestamp}"
+    command = f"""
+    CUDA_VISIBLE_DEVICES=0 python {script} \
+    --config Grounded-Segment-Anything/GroundingDINO/groundingdino/config/GroundingDINO_SwinT_OGC.py \
+    --grounded_checkpoint Grounded-Segment-Anything/groundingdino_swint_ogc.pth \
+    --sam_checkpoint Grounded-Segment-Anything/sam_vit_h_4b8939.pth \
+    --input_image {image_path} \
+    --output_dir {output_dir} \
+    --box_threshold 0.2 \
+    --text_threshold 0.5 \
+    --det_prompt "{det_prompt}" \
+    --inpaint_prompt "{inpaint_prompt}" \
+    --device "cuda" \
+    --bbox "{bbox}" 
+    """
+    return command
+
+def main_workflow(prompt, image_path, bbox):
+    output_dir = app.config['OUTPUT_FOLDER']
 
     if not os.path.exists(output_dir):
         os.makedirs(output_dir)
+        
+    image_pil = Image.open(image_path).convert("RGB")
+    image_pil.save(os.path.join(output_dir, "inpainted_image.jpg"))
 
-    # 프롬프트 분석 및 작업 분리
     tasks = analyze_prompt(prompt)
-    
-    print(f"Tasks identified: {tasks}")
-    
-    # 각 작업 수행
-    for task in tasks:
-        command = generate_command(task, image_path, output_dir)
-        run_command(command)
-        # 결과 이미지를 다음 작업에 사용할 이미지로 설정
-        if task in ["clear_sky", "cloudy_sky", "overcast_sky", "stormy_sky", "rainy_sky", "snowy_sky", "rainbow_sky"]:
-            image_path = os.path.join(output_dir, "inpainted_image.jpg")
-        elif task == "remove_people":
-            image_path = os.path.join(output_dir, "output_image.jpg")
+    tasks = json.loads(tasks)
+    print(tasks)
 
-if __name__ == "__main__":
-    prompt = "맑은 하늘로 변경해주고, 사람들을 지워줘"
-    image_path = './assets/raw_image2.jpg'
-    main_workflow(prompt, image_path)
+    tasks['tasks'].sort(key=lambda x: x['label'] != '날씨 변경')
+
+    image_paths = [image_path]
+
+    for task in tasks['tasks']:
+        command = generate_command(task, image_paths[-1], output_dir, bbox)
+        run_command(command)
+        if task['label'] == "날씨 변경":
+           image_path = "inpainted_image.jpg"
+        elif task['label'] == "객체 제거":
+           image_path = "inpainted_image.png"
+
+    return image_path, tasks['tasks']
+
+@app.route('/')
+def index():
+    return render_template('index.html')
+
+@app.route('/upload', methods=['POST'])
+def upload_file():
+    if 'file' not in request.files:
+        return 'No file part', 400
+    file = request.files['file']
+    prompt = request.form['prompt']
+    bbox = request.form.get('bbox', "0.0,0.0,0.0,0.0")
+    if file.filename == '':
+        return 'No selected file', 400
+    if file:
+        filename = file.filename
+        file_path = os.path.join(app.config['UPLOAD_FOLDER'], filename)
+        file.save(file_path)
+        
+        return redirect(url_for('loading', filename=filename, prompt=prompt, bbox=bbox))
+
+@app.route('/loading')
+def loading():
+    filename = request.args.get('filename')
+    prompt = request.args.get('prompt')
+    bbox = request.args.get('bbox')
+    return render_template('loading.html', filename=filename, prompt=prompt, bbox=bbox)
+
+@app.route('/process', methods=['POST'])
+def process():
+    data = request.get_json()
+    filename = data['filename']
+    prompt = data['prompt']
+    bbox = data['bbox']
+    file_path = os.path.join(app.config['UPLOAD_FOLDER'], filename)
+    try:
+        output_image, tasks = main_workflow(prompt, file_path, bbox)
+        return jsonify({'status': 'complete', 'output_image': output_image, 'tasks': tasks})
+    except Exception as e:
+        return jsonify({'status': 'error', 'message': str(e)})
+
+@app.route('/result')
+def result():
+    filename = request.args.get('filename')
+    prompt = request.args.get('prompt')
+    output_image = request.args.get('output_image')
+    tasks = json.loads(request.args.get('tasks'))
+    return render_template('result.html', filename=filename, prompt=prompt, output_image=output_image, tasks=tasks)
+
+if __name__ == '__main__':
+    if not os.path.exists(app.config['UPLOAD_FOLDER']):
+        os.makedirs(app.config['UPLOAD_FOLDER'])
+    if not os.path.exists(app.config['OUTPUT_FOLDER']):
+        os.makedirs(app.config['OUTPUT_FOLDER'])
+    app.run(host='0.0.0.0', debug=True, port=8080)

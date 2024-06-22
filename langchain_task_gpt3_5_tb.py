@@ -1,13 +1,13 @@
 import os
-from dotenv import load_dotenv
-import openai
 import json
+import time
+from dotenv import load_dotenv
+from langchain.chains import LLMChain
+from langchain.prompts import PromptTemplate
+from langchain.chat_models import ChatOpenAI
 
 # .env 파일 로드
 load_dotenv()
-
-# OpenAI API 키 설정
-openai.api_key = os.getenv("OPENAI_API_KEY")
 
 class LangChain:
     def __init__(self):
@@ -40,29 +40,23 @@ class LangChain:
         JSON 형식으로 출력:
         """
 
+        self.llm = ChatOpenAI(model="gpt-3.5-turbo", temperature=0.0)
+        self.chain = LLMChain(prompt=PromptTemplate(input_variables=["examples", "input"], template=self.prompt_template), llm=self.llm)
+
     def process_user_input(self, user_input):
+        start_time = time.time()
         examples = "\n".join([
             f'{{"input": "{ex["input"]}", "tasks": {json.dumps(ex["tasks"], ensure_ascii=False)}}}' 
             for ex in self.examples
         ])
         prompt_with_examples = self.prompt_template.format(examples=examples, input=user_input)
-
-        response = openai.ChatCompletion.create(
-            model="gpt-3.5-turbo",
-            messages=[
-                {"role": "system", "content": "You are a helpful assistant."},
-                {"role": "user", "content": prompt_with_examples}
-            ],
-            temperature=0.0,
-            max_tokens=150,
-            n=1,
-            stop=None
-        )
+        response = self.chain.run({"examples": examples, "input": user_input})
+        end_time = time.time()
+        execution_time = end_time - start_time
+        print(f"Execution time: {execution_time:.2f} seconds")
         
-        prediction = response.choices[0].message.content.strip()
-
         try:
-            parsed_result = json.loads(prediction)
+            parsed_result = json.loads(response)
         except json.JSONDecodeError:
             print("JSON 파싱에 실패했습니다.")
             parsed_result = {"error": "Invalid JSON format"}
@@ -71,5 +65,5 @@ class LangChain:
 
 if __name__ == '__main__':
     lang = LangChain()
-    result = lang.process_user_input("사람들을 제거해주고 맑은 하늘로 변경해줘.")
+    result = lang.process_user_input("매우 맑고 화창한 하늘로 변경해주고, 사람들을 제거 해줘.")
     print(result)

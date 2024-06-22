@@ -195,7 +195,7 @@ def main(args):
 
     # 인페인팅 파이프라인
     script2 = f"""
-    iopaint run --model=lama --device=cpu --image={os.path.join(args.output_dir, "inpainted_image.jpg")} --mask={os.path.join(args.output_dir, "dilated_mask_bw.jpg")} --output={args.output_dir}
+    iopaint run --model=zits --device=cpu --image={os.path.join(args.output_dir, "inpainted_image.jpg")} --mask={os.path.join(args.output_dir, "dilated_mask_bw.jpg")} --output={args.output_dir}
     """
     
     def run(command):
