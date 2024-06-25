@@ -30,8 +30,6 @@ import torch
 from io import BytesIO
 from diffusers import StableDiffusionInpaintPipeline
 import datetime
-# 시간
-# timestamp = datetime.datetime.now().strftime("%Y%m%d_%H%M%S")
 
 def load_image(image_path):
     # 이미지 로드
@@ -206,27 +204,40 @@ if __name__ == "__main__":
     kernel = np.ones((kernel_size_row, kernel_size_col), np.uint8)
 
     dilation_image = cv2.dilate(bw_mask, kernel, iterations=1)  #// make dilation image
+    # dilation_image = cv2.erode(bw_mask, kernel, iterations=1)
+
     
     dilated_mask_pil = Image.fromarray(dilation_image, mode="L")
     dilated_mask_pil.save(os.path.join(output_dir, "dilated_mask_bw.jpg"))
 
-    # 인페인팅 파이프라인
-    # inpaint_pipeline = StableDiffusionInpaintPipeline.from_pretrained(
-    #     "runwayml/stable-diffusion-inpainting", 
-    #     revision="fp16", 
-    #     torch_dtype=torch.float16, 
-    #     cache_dir=cache_dir
-    # ).to(device)
+    # 인페인팅 파이프라인 설정
     inpaint_pipeline = StableDiffusionInpaintPipeline.from_pretrained(
-    "stabilityai/stable-diffusion-2-inpainting",
-    torch_dtype=torch.float16,
+        "stabilityai/stable-diffusion-2-inpainting",
+        torch_dtype=torch.float16,
     ).to(device)
 
     # 원본 이미지와 마스크 이미지 로드
     init_image = Image.open(os.path.join(output_dir, "raw_image.jpg")).convert("RGB")
     mask_image = Image.open(os.path.join(output_dir, "dilated_mask_bw.jpg")).convert("RGB")
 
-    # 인페인팅
-    inpaint_result = inpaint_pipeline(prompt=inpaint_prompt, image=init_image, mask_image=mask_image, height=1024, width=1024)
+    # 원본 이미지 크기 가져오기
+    width, height = init_image.size
+
+    # 높이와 너비를 8로 나누어 떨어지도록 조정
+    height = (height // 8) * 8 * 2
+    width = (width // 8) * 8 * 2
+
+    # 이미지를 새로운 크기로 리사이즈
+    init_image = init_image.resize((width, height), Image.LANCZOS)
+    mask_image = mask_image.resize((width, height), Image.LANCZOS)
+
+    # 인페인팅 수행
+    inpaint_result = inpaint_pipeline(
+        prompt=inpaint_prompt, 
+        image=init_image, 
+        mask_image=mask_image, 
+        height=height, 
+        width=width
+    )
     inpainted_image = inpaint_result.images[0]
     inpainted_image.save(os.path.join(output_dir, "inpainted_image.jpg"))

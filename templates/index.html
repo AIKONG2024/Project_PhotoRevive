@@ -54,8 +54,11 @@
                 <input type="file" id="file" name="file" required>
                 <input type="text" id="prompt" name="prompt" placeholder="추가 설명을 입력하세요" required>
                 <input type="hidden" id="bbox" name="bbox">
-                <canvas id="canvas" width="500" height="500"></canvas>
-                <div> 남기고 싶은 객체가 있다면 마우스로 영역을 잡아주세요.</div>
+                <canvas id="canvas" width=image.width height=image.height></canvas>
+                <div> 1. 수정하고 싶은 사진 파일을 선택해주세요.</div>
+                <div> 2. 남기고 싶은 객체가 있다면 마우스로 영역을 지정해주세요.</div>
+                <div> 3. 원하는 작업 명령을 입력해주세요 ( 예: 맑은 날씨와 사람들을 지워주세요.)</div>
+                <div> 4. 업로드를 눌러 완벽한 추억의 사진을 간직하세요</div>
                 <input type="submit" value="업로드">
             </form>
         </div>
@@ -88,6 +91,8 @@
                 endY = pos.y;
                 ctx.clearRect(0, 0, canvas.width, canvas.height);
                 ctx.drawImage(image, 0, 0, canvas.width, canvas.height);
+                ctx.strokeStyle = 'red';
+                ctx.lineWidth = 3;
                 ctx.strokeRect(startX, startY, endX - startX, endY - startY);
             }
         });
@@ -109,16 +114,41 @@
             const reader = new FileReader();
             reader.onload = (event) => {
                 image.onload = () => {
-                    canvas.style.display = 'block';
-                    canvas.width = image.width;
-                    canvas.height = image.height;
                     imgWidth = image.width;
                     imgHeight = image.height;
+                    canvas.width = imgWidth;
+                    canvas.height = imgHeight;
+                    canvas.style.display = 'block';
                     ctx.drawImage(image, 0, 0, canvas.width, canvas.height);
+                    localStorage.setItem('imgData', event.target.result);
                 }
                 image.src = event.target.result;
             }
             reader.readAsDataURL(file);
+        });
+
+        window.addEventListener('pageshow', (event) => {
+            if (event.persisted || performance.navigation.type === 2) {
+                // Clear all form inputs
+                document.getElementById('upload-form').reset();
+                // Clear canvas
+                ctx.clearRect(0, 0, canvas.width, canvas.height);
+                canvas.style.display = 'none';
+                // Clear local storage
+                localStorage.removeItem('imgData');
+                localStorage.removeItem('wasCached');
+            }
+        });
+
+        window.addEventListener('load', () => {
+            const imgData = localStorage.getItem('imgData');
+            if (!imgData) {
+                canvas.style.display = 'none';
+            }
+        });
+
+        window.addEventListener('beforeunload', () => {
+            localStorage.removeItem('imgData');
         });
     </script>
 </body>

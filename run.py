@@ -1,4 +1,4 @@
-from flask import Flask, request, render_template, redirect, url_for, jsonify
+from flask import Flask, request, render_template, redirect, url_for, jsonify, session
 import os
 import subprocess
 from langchain_task_gpt3_5_tb import LangChain
@@ -7,6 +7,7 @@ from PIL import Image
 import time
 
 app = Flask(__name__)
+app.secret_key = 'supersecretkey'
 app.config['UPLOAD_FOLDER'] = 'static/uploads/'
 app.config['OUTPUT_FOLDER'] = 'static/outputs/'
 
@@ -24,7 +25,7 @@ def generate_command(task, image_path, output_dir, bbox):
     return command
 
 def generate_weather_change_command(task, image_path, output_dir):
-    script = "grounded_sam_inpainting_2_demo_custom_mask.py"
+    script = "grounded_sam_inpainting_2_demo_custom_mask_testing.py"
     det_prompt = task['det_prompt']
     inpaint_prompt = task['inpainting_prompt']
     
@@ -138,6 +139,11 @@ def result():
     output_image = request.args.get('output_image')
     tasks = json.loads(request.args.get('tasks'))
     return render_template('result.html', filename=filename, prompt=prompt, output_image=output_image, tasks=tasks)
+
+@app.route('/check_bfcache', methods=['POST'])
+def check_bfcache():
+    is_bfcache = request.json.get('bfcache', False)
+    return jsonify({'message': 'BFCache status received', 'bfcache': is_bfcache})
 
 if __name__ == '__main__':
     if not os.path.exists(app.config['UPLOAD_FOLDER']):
