@@ -32,7 +32,7 @@
             flex-direction: column;
         }
         img {
-            max-width: 100%;  /* 최대 너비 설정 */
+            max-width: 50%;  /* 최대 너비 설정 */
             height: auto;  /* 자동 높이 조절 */
         }
         .task-details {
@@ -57,7 +57,8 @@
                 {% for task in tasks %}
                     <strong>task:</strong> {{ task.label }}<br>
                     <strong>det prompt:</strong> {{ task.det_prompt }}<br>
-                    <strong>inpaint prompt:</strong> {{ task.inpainting_prompt }}
+                    <strong>inpaint prompt:</strong> {{ task.inpainting_prompt }}<br>
+                    <br>
                 {% endfor %}
             </div>
         </div>

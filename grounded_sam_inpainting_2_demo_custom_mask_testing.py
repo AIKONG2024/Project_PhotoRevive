@@ -226,18 +226,23 @@ if __name__ == "__main__":
     # 높이와 너비를 8로 나누어 떨어지도록 조정
     height = (height // 8) * 8 * 2
     width = (width // 8) * 8 * 2
-
     # 이미지를 새로운 크기로 리사이즈
     init_image = init_image.resize((width, height), Image.LANCZOS)
     mask_image = mask_image.resize((width, height), Image.LANCZOS)
 
     # 인페인팅 수행
+    # generator = torch.Generator(device=device).manual_seed(7)  # 시드 설정
     inpaint_result = inpaint_pipeline(
         prompt=inpaint_prompt, 
         image=init_image, 
         mask_image=mask_image, 
         height=height, 
-        width=width
+        width=width,
+        negative_prompt = "sky, no ground, no objects, no plants, unrealistic sky, oversaturated",
+        num_inference_steps= 100, 
+        strength=0.86,
+        guidance_scale=9.0, 
+        # generator=generator
     )
     inpainted_image = inpaint_result.images[0]
     inpainted_image.save(os.path.join(output_dir, "inpainted_image.jpg"))
