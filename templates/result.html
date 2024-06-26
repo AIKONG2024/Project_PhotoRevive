@@ -5,39 +5,72 @@
     <style>
         body {
             font-family: Arial, sans-serif;
-            display: flex;
-            justify-content: center;
-            align-items: center;
-            flex-direction: column;
-            height: 100vh;
             margin: 0;
+            padding: 0;
+            box-sizing: border-box;
         }
         .container {
             display: flex;
-            flex-direction: row;
             width: 100%;
-            margin-bottom: 20px;
+            max-width: 100vw;
         }
         .left, .right {
             flex: 1;
-            padding: 20px;
+            padding: 10px;
+            display: flex;
+            flex-direction: column;
         }
         .left {
             border-right: 1px solid #ccc;
         }
-        .right {
+        .image-container {
+            flex: 1;
             display: flex;
             justify-content: center;
             align-items: center;
-            flex-direction: column;
+            overflow: hidden;
+            margin-bottom: 10px;
         }
         img {
-            max-width: 50%;  /* 최대 너비 설정 */
-            height: auto;  /* 자동 높이 조절 */
+            max-width: 100%;
+            max-height: 65vh;
+            object-fit: contain;
         }
         .task-details {
+            height: 25vh;
+            overflow-y: auto;
+            padding: 10px;
+            border-top: 1px solid #eee;
+        }
+        h1 {
+            margin: 0;
+            padding: 10px 0;
+            text-align: center;
+            border-bottom: 1px solid #eee;
+        }
+        .button-container {
+            text-align: center;
             margin-top: 20px;
-            text-align: left;
+            margin-bottom: 20px;
+        }
+        .generate-button {
+            padding: 15px 30px;
+            font-size: 18px;
+            background-color: #4CAF50;
+            color: white;
+            border: none;
+            border-radius: 5px;
+            cursor: pointer;
+            transition: background-color 0.3s;
+        }
+        .generate-button:hover {
+            background-color: #45a049;
+        }
+        @media (min-width: 1200px) {
+            .container {
+                max-width: 90vw;
+                margin: 0 auto;
+            }
         }
     </style>
 </head>
@@ -45,14 +78,18 @@
     <div class="container">
         <div class="left">
             <h1>입력이미지</h1>
-            <img src="{{ url_for('static', filename='uploads/' + filename) }}" alt="업로드된 이미지">
+            <div class="image-container">
+                <img src="{{ url_for('static', filename='uploads/' + filename) }}" alt="업로드된 이미지">
+            </div>
             <div class="task-details">
                 <strong>task:</strong> {{ prompt }}<br>
             </div>
         </div>
         <div class="right">
             <h1>결과</h1>
-            <img src="{{ url_for('static', filename='outputs/' + output_image) }}" alt="출력 이미지">
+            <div class="image-container">
+                <img src="{{ url_for('static', filename='outputs/' + output_image) }}" alt="출력 이미지">
+            </div>
             <div class="task-details">
                 {% for task in tasks %}
                     <strong>task:</strong> {{ task.label }}<br>
@@ -63,9 +100,9 @@
             </div>
         </div>
     </div>
-    <div class="container">
-        <form method="get" enctype="multipart/form-data" action="/">
-            <input type="submit" value="다른 이미지 생성">
+    <div class="button-container">
+        <form method="get" action="/">
+            <input type="submit" value="다른 이미지 생성" class="generate-button">
         </form>
     </div>
 </body>

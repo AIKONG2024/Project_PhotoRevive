@@ -2,32 +2,34 @@
 <html>
 <head>
     <title>추억의 사진 보정</title>
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
     <style>
         body {
             font-family: Arial, sans-serif;
             display: flex;
             justify-content: center;
             align-items: center;
-            height: 100vh;
+            min-height: 100vh;
             margin: 0;
+            padding: 20px;
+            box-sizing: border-box;
         }
         .container {
             display: flex;
-            flex-direction: row;
+            flex-direction: column;
             width: 100%;
+            max-width: 600px;
         }
         .center {
             display: flex;
             flex-direction: column;
             align-items: center;
-            flex: 1;
-            padding: 20px;
+            width: 100%;
         }
         form {
             display: flex;
             flex-direction: column;
             width: 100%;
-            max-width: 400px;
         }
         input[type="file"], input[type="text"], input[type="submit"] {
             margin-bottom: 20px;
@@ -43,6 +45,14 @@
         canvas {
             border: 1px solid black;
             display: none;
+            max-width: 100%;
+            height: auto;
+        }
+        .instructions {
+            margin-bottom: 20px;
+        }
+        .instructions div {
+            margin-bottom: 10px;
         }
     </style>
 </head>
@@ -51,14 +61,16 @@
         <div class="center">
             <h1>추억의 사진 보정</h1>
             <form id="upload-form" method="post" enctype="multipart/form-data" action="/upload">
-                <input type="file" id="file" name="file" required>
+                <input type="file" id="file" name="file" required accept="image/*">
                 <input type="text" id="prompt" name="prompt" placeholder="추가 설명을 입력하세요" required>
                 <input type="hidden" id="bbox" name="bbox">
-                <canvas id="canvas" width=image.width height=image.height></canvas>
-                <div> 1. 수정하고 싶은 사진 파일을 선택해주세요.</div>
-                <div> 2. 남기고 싶은 객체가 있다면 마우스로 영역을 지정해주세요.</div>
-                <div> 3. 원하는 작업 명령을 입력해주세요 ( 예: 맑은 날씨와 사람들을 지워주세요.)</div>
-                <div> 4. 업로드를 눌러 완벽한 추억의 사진을 간직하세요</div>
+                <canvas id="canvas"></canvas>
+                <div class="instructions">
+                    <div>1. 수정하고 싶은 사진 파일을 선택해주세요.</div>
+                    <div>2. 남기고 싶은 객체가 있다면 마우스나 터치로 영역을 지정해주세요.</div>
+                    <div>3. 원하는 작업 명령을 입력해주세요 (예: 맑은 날씨와 사람들을 지워주세요.)</div>
+                    <div>4. 업로드를 눌러 완벽한 추억의 사진을 간직하세요</div>
+                </div>
                 <input type="submit" value="업로드">
             </form>
         </div>
@@ -71,33 +83,44 @@
 
         function getMousePos(canvas, evt) {
             const rect = canvas.getBoundingClientRect();
+            const scaleX = canvas.width / rect.width;
+            const scaleY = canvas.height / rect.height;
             return {
-                x: (evt.clientX - rect.left) / (rect.right - rect.left) * canvas.width,
-                y: (evt.clientY - rect.top) / (rect.bottom - rect.top) * canvas.height
+                x: (evt.clientX - rect.left) * scaleX,
+                y: (evt.clientY - rect.top) * scaleY
             };
         }
 
-        canvas.addEventListener('mousedown', (e) => {
-            const pos = getMousePos(canvas, e);
+        function getTouchPos(canvas, evt) {
+            const rect = canvas.getBoundingClientRect();
+            const scaleX = canvas.width / rect.width;
+            const scaleY = canvas.height / rect.height;
+            return {
+                x: (evt.touches[0].clientX - rect.left) * scaleX,
+                y: (evt.touches[0].clientY - rect.top) * scaleY
+            };
+        }
+
+        function handleStart(evt) {
+            evt.preventDefault();
+            const pos = evt.type.startsWith('mouse') ? getMousePos(canvas, evt) : getTouchPos(canvas, evt);
             startX = pos.x;
             startY = pos.y;
             isDrawing = true;
-        });
+        }
 
-        canvas.addEventListener('mousemove', (e) => {
-            if (isDrawing) {
-                const pos = getMousePos(canvas, e);
-                endX = pos.x;
-                endY = pos.y;
-                ctx.clearRect(0, 0, canvas.width, canvas.height);
-                ctx.drawImage(image, 0, 0, canvas.width, canvas.height);
-                ctx.strokeStyle = 'red';
-                ctx.lineWidth = 3;
-                ctx.strokeRect(startX, startY, endX - startX, endY - startY);
-            }
-        });
+        function handleMove(evt) {
+            if (!isDrawing) return;
+            evt.preventDefault();
+            const pos = evt.type.startsWith('mouse') ? getMousePos(canvas, evt) : getTouchPos(canvas, evt);
+            endX = pos.x;
+            endY = pos.y;
+            redrawCanvas();
+        }
 
-        canvas.addEventListener('mouseup', () => {
+        function handleEnd(evt) {
+            if (!isDrawing) return;
+            evt.preventDefault();
             isDrawing = false;
             endX = Math.min(Math.max(0, endX), canvas.width);
             endY = Math.min(Math.max(0, endY), canvas.height);
@@ -106,7 +129,22 @@
             const bbox = `${(startX / canvas.width) * imgWidth},${(startY / canvas.height) * imgHeight},${((endX - startX) / canvas.width) * imgWidth},${((endY - startY) / canvas.height) * imgHeight}`;
             document.getElementById('bbox').value = bbox;
             console.log(`Bounding box: ${bbox}`);
-        });
+        }
+
+        function redrawCanvas() {
+            ctx.clearRect(0, 0, canvas.width, canvas.height);
+            ctx.drawImage(image, 0, 0, canvas.width, canvas.height);
+            ctx.strokeStyle = 'red';
+            ctx.lineWidth = 3;
+            ctx.strokeRect(startX, startY, endX - startX, endY - startY);
+        }
+
+        canvas.addEventListener('mousedown', handleStart);
+        canvas.addEventListener('mousemove', handleMove);
+        canvas.addEventListener('mouseup', handleEnd);
+        canvas.addEventListener('touchstart', handleStart);
+        canvas.addEventListener('touchmove', handleMove);
+        canvas.addEventListener('touchend', handleEnd);
 
         const image = new Image();
         document.getElementById('file').addEventListener('change', (e) => {
@@ -116,8 +154,11 @@
                 image.onload = () => {
                     imgWidth = image.width;
                     imgHeight = image.height;
-                    canvas.width = imgWidth;
-                    canvas.height = imgHeight;
+                    const maxWidth = window.innerWidth * 0.9;
+                    const maxHeight = window.innerHeight * 0.6;
+                    const scale = Math.min(maxWidth / imgWidth, maxHeight / imgHeight);
+                    canvas.width = imgWidth * scale;
+                    canvas.height = imgHeight * scale;
                     canvas.style.display = 'block';
                     ctx.drawImage(image, 0, 0, canvas.width, canvas.height);
                     localStorage.setItem('imgData', event.target.result);
@@ -129,12 +170,9 @@
 
         window.addEventListener('pageshow', (event) => {
             if (event.persisted || performance.navigation.type === 2) {
-                // Clear all form inputs
                 document.getElementById('upload-form').reset();
-                // Clear canvas
                 ctx.clearRect(0, 0, canvas.width, canvas.height);
                 canvas.style.display = 'none';
-                // Clear local storage
                 localStorage.removeItem('imgData');
                 localStorage.removeItem('wasCached');
             }
